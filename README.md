@@ -123,6 +123,7 @@ Generating one report uses roughly 3,000–6,000 tokens which costs fractions of
 This toolkit is for educational and defensive security research purposes only. IOCs and threat intelligence data are sourced from publicly available threat research blogs and RSS feeds. Always verify IOCs before acting on them. The AI-generated content should be treated as a starting point for research, not as a definitive source of truth.
 
 🔧 Troubleshooting
+
 "Failed to fetch" error
 Your Cloudflare Worker URL is missing or incorrect. Make sure you've deployed the worker and pasted the full URL including https://.
 "Error: Please enter an API key"
