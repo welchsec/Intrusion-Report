@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intrusion Report | WelchSec</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0c0e;
+    --bg2: #111115;
+    --panel: #16161c;
+    --border: #222230;
+    --accent: #7c6af7;
+    --accent2: #f25c7a;
+    --accent3: #4affa0;
+    --warn: #f7a840;
+    --text: #d4d4e8;
+    --muted: #5a5a78;
+    --heading: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-brand {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--heading);
+    letter-spacing: 0.02em;
+  }
+
+  .topbar-brand span { color: var(--accent); }
+
+  .topbar-nav {
+    display: flex;
+    gap: 1.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .topbar-nav a {
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .topbar-nav a:hover { color: var(--accent); }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: calc(100vh - 49px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem;
+    position: sticky;
+    top: 49px;
+    height: calc(100vh - 49px);
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .sidebar-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+  }
+
+  .sidebar-toc a {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    line-height: 1.4;
+  }
+
+  .sidebar-toc a:hover, .sidebar-toc a.active {
+    color: var(--text);
+    border-left-color: var(--accent);
+    background: rgba(124,106,247,0.05);
+  }
+
+  .sidebar-stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar-stat-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.15rem;
+  }
+
+  .sidebar-stat-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* Main content */
+  main {
+    padding: 2.5rem 3rem;
+    max-width: 900px;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    main { padding: 1.5rem; }
+  }
+
+  /* Report header */
+  .report-hero {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .report-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    margin-bottom: 0.75rem;
+  }
+
+  .report-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--heading);
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+
+  .report-meta-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .report-meta-item {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .report-meta-item span { color: var(--text); }
+
+  .report-summary {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.8;
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    background: rgba(124,106,247,0.04);
+    padding: 1rem 1rem 1rem 1.25rem;
+  }
+
+  /* Section headers */
+  .section {
+    margin-bottom: 2.5rem;
+    scroll-margin-top: 70px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .section-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 0.15rem 0.4rem;
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--heading);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .section-body {
+    font-size: 0.9rem;
+    line-height: 1.8;
+    color: var(--text);
+  }
+
+  .section-body p { margin-bottom: 0.75rem; }
+
+  /* Kill chain timeline */
+  .killchain {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 1.25rem 0;
+    position: relative;
+  }
+
+  .killchain::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 30px;
+    bottom: 30px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2));
+    opacity: 0.3;
+  }
+
+  .kc-step {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    position: relative;
+  }
+
+  .kc-dot {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .kc-dot.exec { border-color: var(--warn); color: var(--warn); }
+  .kc-dot.persist { border-color: #b39ddb; color: #b39ddb; }
+  .kc-dot.privesc { border-color: var(--accent2); color: var(--accent2); }
+  .kc-dot.lateral { border-color: var(--accent3); color: var(--accent3); }
+  .kc-dot.exfil { border-color: #ff8a65; color: #ff8a65; }
+  .kc-dot.impact { border-color: var(--accent2); color: var(--accent2); background: rgba(242,92,122,0.1); }
+
+  .kc-content {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    margin-top: 0.25rem;
+  }
+
+  .kc-phase {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.25rem;
+  }
+
+  .kc-phase.init { color: var(--accent); }
+  .kc-phase.exec { color: var(--warn); }
+  .kc-phase.persist { color: #b39ddb; }
+  .kc-phase.privesc { color: var(--accent2); }
+  .kc-phase.lateral { color: var(--accent3); }
+  .kc-phase.exfil { color: #ff8a65; }
+  .kc-phase.impact { color: var(--accent2); }
+
+  .kc-action {
+    font-size: 0.85rem;
+    color: var(--heading);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+
+  .kc-detail {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .kc-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+  }
+
+  .tool-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--accent2);
+    background: rgba(242,92,122,0.08);
+    border: 1px solid rgba(242,92,122,0.25);
+    padding: 0.1rem 0.35rem;
+    letter-spacing: 0.05em;
+  }
+
+  .tool-tag.lolbin { color: var(--accent); background: rgba(124,106,247,0.08); border-color: rgba(124,106,247,0.25); }
+  .tool-tag.rmm { color: var(--warn); background: rgba(247,168,64,0.08); border-color: rgba(247,168,64,0.25); }
+
+  /* Process table */
+  .proc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    margin: 1rem 0;
+  }
+
+  .proc-table th {
+    background: var(--panel);
+    color: var(--muted);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .proc-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .proc-table tr:hover td { background: var(--panel); }
+
+  .proc-table .proc-name { color: var(--accent2); }
+  .proc-table .proc-type { }
+  .proc-table .proc-note { color: var(--muted); font-family: 'Inter', sans-serif; font-size: 0.72rem; }
+
+  .badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.55rem;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .badge.rmm { color: var(--warn); border-color: rgba(247,168,64,0.4); }
+  .badge.lolbin { color: var(--accent); border-color: rgba(124,106,247,0.4); }
+  .badge.malware { color: var(--accent2); border-color: rgba(242,92,122,0.4); }
+  .badge.persistence { color: #b39ddb; border-color: rgba(179,157,219,0.4); }
+  .badge.c2 { color: var(--accent3); border-color: rgba(74,255,160,0.4); }
+  .badge.exfil { color: #ff8a65; border-color: rgba(255,138,101,0.4); }
+
+  /* Callout boxes */
+  .callout {
+    border: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    position: relative;
+  }
+
+  .callout::before {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    position: absolute;
+    top: -0.5rem;
+    left: 0.75rem;
+    padding: 0 0.4rem;
+    background: var(--bg);
+  }
+
+  .callout.key-findings { border-color: rgba(124,106,247,0.4); }
+  .callout.key-findings::before { content: 'KEY FINDINGS'; color: var(--accent); background: var(--bg); }
+
+  .callout.detection { border-color: rgba(74,255,160,0.3); }
+  .callout.detection::before { content: 'DETECTION OPPORTUNITIES'; color: var(--accent3); background: var(--bg); }
+
+  .callout.ioc { border-color: rgba(242,92,122,0.3); }
+  .callout.ioc::before { content: 'INDICATORS OF COMPROMISE'; color: var(--accent2); background: var(--bg); }
+
+  .callout ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .callout ul li {
+    font-size: 0.82rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    line-height: 1.5;
+  }
+
+  .callout ul li:last-child { border-bottom: none; }
+
+  .callout ul li::before {
+    content: '▸';
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+  }
+
+  .callout.key-findings ul li::before { color: var(--accent); }
+  .callout.detection ul li::before { color: var(--accent3); }
+  .callout.ioc ul li::before { color: var(--accent2); }
+
+  .ioc-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent2);
+    word-break: break-all;
+  }
+
+  .ioc-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+    min-width: 80px;
+  }
+
+  /* Case cards (multi-case view) */
+  .case-cards {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .case-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    padding: 1.5rem;
+    animation: fadeUp 0.4s ease forwards;
+    opacity: 0;
+  }
+
+  .case-card:nth-child(2) { border-top-color: var(--accent2); animation-delay: 0.1s; }
+  .case-card:nth-child(3) { border-top-color: var(--warn); animation-delay: 0.2s; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .case-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    margin-bottom: 0.4rem;
+  }
+
+  .case-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin-bottom: 0.5rem;
+  }
+
+  .case-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .case-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 0.1rem 0.4rem;
+    letter-spacing: 0.05em;
+  }
+
+  .case-summary-text {
+    font-size: 0.83rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .case-chain {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    align-items: center;
+  }
+
+  .chain-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.5rem;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+
+  .chain-arrow { color: var(--muted); font-size: 0.7rem; }
+
+  /* Controls */
+  .controls-bar {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: end;
+    position: relative;
+  }
+
+  .controls-bar::before {
+    content: 'REPORT GENERATOR';
+    position: absolute;
+    top: -0.5rem;
+    left: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--accent);
+    background: var(--bg2);
+    padding: 0 0.4rem;
+    letter-spacing: 0.12em;
+  }
+
+  @media (max-width: 700px) {
+    .controls-bar { grid-template-columns: 1fr; }
+  }
+
+  .field label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.35rem;
+  }
+
+  .field select, .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .field select:focus, .field input:focus { border-color: var(--accent); }
+  .field select option { background: var(--bg); }
+
+  .gen-btn {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    padding: 0.55rem 1.25rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .gen-btn:hover:not(:disabled) { background: #9882f9; box-shadow: 0 0 20px rgba(124,106,247,0.4); }
+  .gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* API config */
+  .api-config {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    position: relative;
+  }
+
+  .api-config::before {
+    content: 'API CONFIGURATION';
+    position: absolute;
+    top: -0.5rem;
+    left: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    background: var(--bg2);
+    padding: 0 0.4rem;
+    letter-spacing: 0.12em;
+  }
+
+  @media (max-width: 700px) { .api-config { grid-template-columns: 1fr; } }
+
+  .api-note {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+  }
+
+  .api-note a { color: var(--accent); text-decoration: none; }
+
+  /* Status */
+  .status-line {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 1.2rem;
+  }
+
+  .status-line.active { color: var(--accent); }
+  .status-line.done { color: var(--accent3); }
+  .status-line.error { color: var(--accent2); }
+
+  .spin {
+    width: 10px; height: 10px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+
+  .spin.on { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Divider */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  /* Export */
+  .export-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .export-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    padding: 0.35rem 0.75rem;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Placeholder */
+  .placeholder {
+    text-align: center;
+    padding: 3rem 1rem;
+    border: 1px dashed var(--border);
+  }
+
+  .ph-icon { font-size: 2rem; opacity: 0.2; margin-bottom: 0.75rem; }
+  .ph-text { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">Welch<span>Sec</span> // Intrusion Reports</div>
+  <div class="topbar-nav">
+    <a href="#">REPORTS</a>
+    <a href="#">THREAT ACTORS</a>
+    <a href="#">IOC DATABASE</a>
+    <a href="https://welchsec.github.io/TTP-Threat-Report/" target="_blank">TTP REPORT ↗</a>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">This Report</div>
+      <div class="sidebar-toc" id="tocLinks">
+        <a href="#overview">Overview</a>
+        <a href="#killchain">Attack Chain</a>
+        <a href="#initial-access">Initial Access</a>
+        <a href="#execution">Execution</a>
+        <a href="#persistence">Persistence</a>
+        <a href="#privesc">Privilege Escalation</a>
+        <a href="#lateral">Lateral Movement</a>
+        <a href="#exfil">Exfiltration</a>
+        <a href="#impact">Impact</a>
+        <a href="#processes">Process Watchlist</a>
+        <a href="#detections">Detection Opportunities</a>
+        <a href="#iocs">IOCs</a>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Report Stats</div>
+      <div class="sidebar-stat">
+        <div class="sidebar-stat-num" id="stat-ttps" style="color:var(--accent)">—</div>
+        <div class="sidebar-stat-label">MITRE TECHNIQUES</div>
+      </div>
+      <div class="sidebar-stat">
+        <div class="sidebar-stat-num" id="stat-tools" style="color:var(--accent2)">—</div>
+        <div class="sidebar-stat-label">TOOLS OBSERVED</div>
+      </div>
+      <div class="sidebar-stat">
+        <div class="sidebar-stat-num" id="stat-iocs" style="color:var(--accent3)">—</div>
+        <div class="sidebar-stat-label">IOCs</div>
+      </div>
+      <div class="sidebar-stat">
+        <div class="sidebar-stat-num" id="stat-dwell" style="color:var(--warn)">—</div>
+        <div class="sidebar-stat-label">DWELL TIME (HRS)</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Sources</div>
+      <div style="font-size:0.72rem; color:var(--muted); line-height:1.6;">
+        Based on findings from DFIR Report, Recorded Future, Cyble, Cognyte, Malware Patrol &amp; public threat intel as of March 2026.
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main>
+
+    <!-- API Config -->
+    <div class="api-config">
+      <div class="field">
+        <label>AI PROVIDER</label>
+        <select id="provider" onchange="updateHint()">
+          <option value="gemini">Google Gemini (FREE)</option>
+          <option value="groq">Groq (FREE — LLaMA 3.3)</option>
+          <option value="openrouter">OpenRouter (FREE models)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>API KEY</label>
+        <input type="password" id="apiKey" placeholder="Paste API key..." autocomplete="off" />
+        <div class="api-note" id="apiNote">Free key at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> — no credit card needed</div>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>CLOUDFLARE WORKER URL</label>
+        <input type="text" id="workerUrl" placeholder="https://your-worker.your-subdomain.workers.dev" />
+        <div class="api-note">Free proxy worker — <a href="https://workers.cloudflare.com" target="_blank">workers.cloudflare.com</a> — deploy <code>cloudflare-worker.js</code> then paste URL here. <strong style="color:#f25c7a">Required to bypass CORS.</strong></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-bar">
+      <div class="field">
+        <label>MALWARE / RANSOMWARE FAMILY</label>
+        <select id="family">
+          <option value="latest observed ransomware and malware families">Latest Observed (All)</option>
+          <option value="Akira ransomware">Akira Ransomware</option>
+          <option value="LockBit ransomware">LockBit Ransomware</option>
+          <option value="BlackCat / ALPHV ransomware">BlackCat / ALPHV</option>
+          <option value="Cl0p ransomware">Cl0p Ransomware</option>
+          <option value="Play ransomware">Play Ransomware</option>
+          <option value="Qilin ransomware">Qilin Ransomware</option>
+          <option value="DragonForce ransomware">DragonForce</option>
+          <option value="Bumblebee malware loader">Bumblebee Loader</option>
+          <option value="Agent Tesla infostealer">Agent Tesla</option>
+          <option value="Cobalt Strike C2 framework">Cobalt Strike</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>INTRUSION TYPE</label>
+        <select id="intrusion">
+          <option value="full intrusion from initial access to ransomware deployment">Full Intrusion (End-to-End)</option>
+          <option value="SEO poisoning and trojanized installer leading to malware">SEO Poisoning Campaign</option>
+          <option value="ClickFix social engineering leading to RMM tool and C2">ClickFix / Fake CAPTCHA</option>
+          <option value="vulnerability exploitation leading to lateral movement">Vuln Exploitation</option>
+          <option value="phishing email leading to malware execution">Phishing Campaign</option>
+          <option value="credential stuffing and RDP brute force">Credential / RDP Attack</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>SECTOR TARGETED</label>
+        <select id="sector">
+          <option value="general enterprise">General Enterprise</option>
+          <option value="healthcare">Healthcare</option>
+          <option value="financial services">Financial Services</option>
+          <option value="manufacturing">Manufacturing</option>
+          <option value="critical infrastructure">Critical Infrastructure</option>
+          <option value="education">Education</option>
+        </select>
+      </div>
+      <button class="gen-btn" id="genBtn" onclick="generateReport()">▶ GENERATE</button>
+    </div>
+
+    <div class="status-line" id="statusLine">
+      <div class="spin" id="spin"></div>
+      <span id="statusText">Configure API key and generate a report</span>
+    </div>
+
+    <!-- Report output -->
+    <div id="reportOutput">
+      <div class="placeholder">
+        <div class="ph-icon">🔍</div>
+        <div class="ph-text">SELECT OPTIONS ABOVE AND HIT GENERATE<br>REPORT WILL APPEAR HERE IN DFIR STYLE</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+const providerHints = {
+  gemini: 'Free key at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> — no credit card needed',
+  groq: 'Free key at <a href="https://console.groq.com" target="_blank">console.groq.com</a> — starts with gsk_',
+  openrouter: 'Free key at <a href="https://openrouter.ai" target="_blank">openrouter.ai</a> — free models available'
+};
+
+function updateHint() {
+  document.getElementById('apiNote').innerHTML = providerHints[document.getElementById('provider').value];
+}
+
+function setStatus(msg, type='') {
+  const line = document.getElementById('statusLine');
+  line.className = 'status-line ' + type;
+  document.getElementById('statusText').textContent = msg;
+  document.getElementById('spin').className = 'spin' + (type === 'active' ? ' on' : '');
+}
+
+// Partial JSON recovery
+function extractPartialJSON(str) {
+  const result = { reportTitle:'Intrusion Report', caseId:'CASE-???', date:today, analystSummary:'', keyFindings:[], attackChain:[], processWatchlist:[], detectionOpportunities:[], iocs:[], mitreTechniques:[] };
+  const fields = Object.keys(result);
+  for (const f of fields) {
+    try {
+      const rx = new RegExp(`"${f}"\\s*:\\s*(\\[.*?\\]|"(?:[^"\\\\]|\\\\.)*?"|\\d+)`, 's');
+      const m = str.match(rx);
+      if (m) result[f] = JSON.parse(m[1]);
+    } catch(e) {}
+  }
+  return result;
+}
+
+async function callAPI(prompt) {
+  const provider   = document.getElementById('provider').value;
+  const apiKey     = document.getElementById('apiKey').value.trim();
+  const workerUrl  = document.getElementById('workerUrl').value.trim();
+  if (!workerUrl) throw new Error('Please enter your Cloudflare Worker URL above.');
+  const r = await fetch(workerUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, apiKey, payload: { prompt, maxTokens: 6000 } })
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: r.statusText }));
+    throw new Error(err.error || 'Worker error ' + r.status);
+  }
+  const data = await r.json();
+  if (data.error) throw new Error(data.error);
+  return data.text || '';
+}
+
+async function generateReport() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { setStatus('Please enter an API key', 'error'); return; }
+
+  const family = document.getElementById('family').value;
+  const intrusion = document.getElementById('intrusion').value;
+  const sector = document.getElementById('sector').value;
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+
+  setStatus('Querying threat intelligence...', 'active');
+
+  const prompt = `You are a DFIR (Digital Forensics and Incident Response) analyst writing a case report in the style of thedfirreport.com. Generate a detailed intrusion report for: malware/ransomware family: "${family}", intrusion type: "${intrusion}", sector: "${sector}", as of March 2026.
+
+Return ONLY valid JSON, no markdown, no text before or after:
+
+{
+  "reportTitle": "narrative title e.g. From ClickFix to Akira: Social Engineering Delivers Ransomware in 4 Hours",
+  "caseId": "CASE-2026-XXX",
+  "date": "March 2026",
+  "dwellTimeHours": number,
+  "analystSummary": "3-4 sentence narrative summary of the intrusion written in DFIR report style",
+  "keyFindings": ["finding 1", "finding 2", "finding 3", "finding 4", "finding 5"],
+  "attackChain": [
+    {
+      "phase": "INITIAL ACCESS",
+      "phaseClass": "init",
+      "stepNum": "01",
+      "action": "short action title",
+      "detail": "2 sentences describing exactly what happened with specific details",
+      "tools": [{"name": "toolname", "type": "malware or lolbin or rmm or c2"}]
+    }
+  ],
+  "processWatchlist": [
+    { "process": "exact.exe", "type": "rmm or lolbin or malware or persistence or c2 or exfil", "description": "why it is suspicious in this context", "mitreId": "T1234" }
+  ],
+  "detectionOpportunities": ["detection rule or log source description 1", "detection 2", "detection 3", "detection 4"],
+  "iocs": [
+    { "type": "DOMAIN or IP or FILE HASH or REGISTRY KEY or URL", "value": "realistic example value" }
+  ],
+  "mitreTechniques": ["T1566.001 - Spearphishing Attachment", "T1059.001 - PowerShell", "T1078 - Valid Accounts"]
+}
+
+Attack chain must include these phases in order (use phaseClass values exactly): init, exec, persist, privesc, lateral, exfil, impact. Include all 7. Make the report specific, technical, and realistic — reference real tools like AnyDesk, mshta.exe, Cobalt Strike, mimikatz, vssadmin, wmic, nltest, net.exe, Rclone, WinSCP. Keep all strings concise. Return ONLY the JSON.`;
+
+  try {
+    const rawText = await callAPI(prompt);
+    setStatus('Parsing report data...', 'active');
+
+    let clean = rawText.replace(/```json/gi,'').replace(/```/g,'').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/,\s*}/g,'}').replace(/,\s*]/g,']').trim();
+    const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
+    if (s === -1 || e === -1) throw new Error('No JSON found in response. Try generating again.');
+    const jsonStr = clean.substring(s, e+1);
+
+    let data;
+    try { data = JSON.parse(jsonStr); }
+    catch(pe) { console.warn('Attempting partial extraction...', pe); data = extractPartialJSON(jsonStr); }
+
+    renderReport(data);
+    setStatus('Report generated — ' + today, 'done');
+  } catch(err) {
+    console.error(err);
+    setStatus('Error: ' + (err.message || err), 'error');
+    document.getElementById('reportOutput').innerHTML = `<div class="placeholder"><div class="ph-icon">⚠</div><div class="ph-text" style="color:var(--accent2)">${err.message || err}</div></div>`;
+  }
+
+  btn.disabled = false;
+}
+
+const phaseClassMap = { init:'init', exec:'exec', persist:'persist', privesc:'privesc', lateral:'lateral', exfil:'exfil', impact:'impact' };
+const phaseLabels = { init:'INITIAL ACCESS', exec:'EXECUTION', persist:'PERSISTENCE', privesc:'PRIVILEGE ESCALATION', lateral:'LATERAL MOVEMENT', exfil:'EXFILTRATION / COLLECTION', impact:'IMPACT' };
+
+function renderReport(d) {
+  // Update sidebar stats
+  document.getElementById('stat-ttps').textContent = (d.mitreTechniques||[]).length || '—';
+  document.getElementById('stat-tools').textContent = (d.attackChain||[]).reduce((a,s)=>a+(s.tools||[]).length,0) || '—';
+  document.getElementById('stat-iocs').textContent = (d.iocs||[]).length || '—';
+  document.getElementById('stat-dwell').textContent = d.dwellTimeHours || '—';
+
+  // Kill chain
+  const chainHTML = (d.attackChain||[]).map(step => {
+    const pc = phaseClassMap[step.phaseClass] || 'init';
+    const toolsHTML = (step.tools||[]).map(t=>`<span class="tool-tag ${t.type||''}">${t.name}</span>`).join('');
+    return `
+      <div class="kc-step">
+        <div class="kc-dot ${pc}">${step.stepNum||'?'}</div>
+        <div class="kc-content">
+          <div class="kc-phase ${pc}">${phaseLabels[pc] || step.phase}</div>
+          <div class="kc-action">${step.action}</div>
+          <div class="kc-detail">${step.detail}</div>
+          ${toolsHTML ? `<div class="kc-tools">${toolsHTML}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Process table
+  const procRows = (d.processWatchlist||[]).map(p=>`
+    <tr>
+      <td class="proc-name">${p.process}</td>
+      <td><span class="badge ${p.type||''}">${(p.type||'').toUpperCase()}</span></td>
+      <td class="proc-note">${p.description}</td>
+      <td style="color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:0.65rem">${p.mitreId||''}</td>
+    </tr>`).join('');
+
+  // Key findings
+  const findingsHTML = (d.keyFindings||[]).map(f=>`<li>${f}</li>`).join('');
+
+  // Detection opportunities
+  const detectHTML = (d.detectionOpportunities||[]).map(d=>`<li>${d}</li>`).join('');
+
+  // IOCs
+  const iocsHTML = (d.iocs||[]).map(i=>`
+    <li>
+      <span class="ioc-label">[${i.type}]</span>
+      <span class="ioc-value">${i.value}</span>
+    </li>`).join('');
+
+  // MITRE techniques
+  const mitreHTML = (d.mitreTechniques||[]).map(t=>`<span class="chain-pill">${t}</span>`).join('');
+
+  // Attack chain shorthand
+  const chainPillHTML = (d.attackChain||[]).map((s,i)=>`
+    ${i>0?'<span class="chain-arrow">→</span>':''}
+    <span class="chain-pill">${s.action||s.phase}</span>`).join('');
+
+  const html = `
+    <div class="report-hero" id="overview">
+      <div class="report-eyebrow">INTRUSION REPORT // ${d.caseId} // ${d.date}</div>
+      <div class="report-title">${d.reportTitle}</div>
+      <div class="report-meta-row">
+        <div class="report-meta-item">GENERATED <span>${today}</span></div>
+        <div class="report-meta-item">DWELL TIME <span>${d.dwellTimeHours ? d.dwellTimeHours + ' HOURS' : 'UNKNOWN'}</span></div>
+        <div class="report-meta-item">TECHNIQUES <span>${(d.mitreTechniques||[]).length}</span></div>
+        <div class="report-meta-item">IOCs <span>${(d.iocs||[]).length}</span></div>
+      </div>
+      <div class="report-summary">${d.analystSummary}</div>
+    </div>
+
+    <div class="callout key-findings">
+      <ul>${findingsHTML}</ul>
+    </div>
+
+    <hr>
+
+    <div class="section" id="killchain">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <div class="section-title">Attack Chain</div>
+      </div>
+      <div class="section-body">
+        <p>The following timeline documents the complete intrusion from initial access through to final impact. Each step includes the tools and techniques observed.</p>
+      </div>
+      <div class="killchain">${chainHTML}</div>
+    </div>
+
+    <hr>
+
+    <div class="section" id="processes">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <div class="section-title">Process Watchlist</div>
+      </div>
+      <div class="section-body">
+        <p>The following processes and tools were observed during this intrusion. Defenders should monitor for these in EDR/SIEM telemetry.</p>
+      </div>
+      <table class="proc-table">
+        <thead>
+          <tr>
+            <th>PROCESS / TOOL</th>
+            <th>TYPE</th>
+            <th>NOTES</th>
+            <th>MITRE ID</th>
+          </tr>
+        </thead>
+        <tbody>${procRows}</tbody>
+      </table>
+    </div>
+
+    <hr>
+
+    <div class="section" id="detections">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <div class="section-title">Detection Opportunities</div>
+      </div>
+      <div class="callout detection">
+        <ul>${detectHTML}</ul>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="section" id="iocs">
+      <div class="section-header">
+        <div class="section-num">04</div>
+        <div class="section-title">Indicators of Compromise</div>
+      </div>
+      <div class="callout ioc">
+        <ul>${iocsHTML}</ul>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="section" id="mitre">
+      <div class="section-header">
+        <div class="section-num">05</div>
+        <div class="section-title">MITRE ATT&amp;CK Techniques</div>
+      </div>
+      <div class="case-chain" style="gap:0.4rem;">${mitreHTML}</div>
+    </div>
+
+    <div class="export-row">
+      <button class="export-btn" onclick="exportTXT()">⬇ EXPORT .TXT</button>
+      <button class="export-btn" onclick="window.print()">🖨 PRINT / PDF</button>
+    </div>
+  `;
+
+  document.getElementById('reportOutput').innerHTML = html;
+  window._report = d;
+}
+
+function exportTXT() {
+  if (!window._report) return;
+  const d = window._report;
+  let t = `INTRUSION REPORT — ${d.caseId}\nGenerated: ${today}\n${'='.repeat(60)}\n\n`;
+  t += `${d.reportTitle}\n\nSUMMARY\n${'-'.repeat(40)}\n${d.analystSummary}\n\n`;
+  t += `KEY FINDINGS\n${'-'.repeat(40)}\n${(d.keyFindings||[]).map((f,i)=>`${i+1}. ${f}`).join('\n')}\n\n`;
+  t += `ATTACK CHAIN\n${'-'.repeat(40)}\n`;
+  (d.attackChain||[]).forEach(s => { t += `[${s.stepNum}] ${s.phase} — ${s.action}\n    ${s.detail}\n    Tools: ${(s.tools||[]).map(x=>x.name).join(', ')}\n\n`; });
+  t += `PROCESS WATCHLIST\n${'-'.repeat(40)}\n`;
+  (d.processWatchlist||[]).forEach(p => { t += `${p.process} [${p.type}] ${p.mitreId||''}\n  ${p.description}\n\n`; });
+  t += `DETECTION OPPORTUNITIES\n${'-'.repeat(40)}\n${(d.detectionOpportunities||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')}\n\n`;
+  t += `INDICATORS OF COMPROMISE\n${'-'.repeat(40)}\n${(d.iocs||[]).map(i=>`[${i.type}] ${i.value}`).join('\n')}\n\n`;
+  t += `MITRE ATT&CK\n${'-'.repeat(40)}\n${(d.mitreTechniques||[]).join('\n')}\n`;
+  const blob = new Blob([t], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${d.caseId}_report.txt`;
+  a.click();
+}
+</script>
+
+</body>
+</html>
