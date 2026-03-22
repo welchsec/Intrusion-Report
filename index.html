@@ -1039,9 +1039,11 @@ async function callAPI(prompt) {
   const data = await r.json();
   if (data.error) throw new Error(data.error);
   // Store source summary for display
-  window._sourceSummary = data.summary || [];
-  window._realData = data.realData || false;
-  window._articlesUsed = data.articlesUsed || 0;
+  window._sourceSummary   = data.summary || [];
+  window._realData        = data.realData || false;
+  window._articlesUsed    = data.articlesUsed || 0;
+  window._articlesFetched = data.articlesFetched || 0;
+  window._iocCount        = data.iocCount || 0;
   return data.text || '';
 }
 
@@ -1172,8 +1174,12 @@ function renderReport(d) {
 
   const html = `
     ${window._realData ? `
-    <div class="real-data-badge">✓ BASED ON ${window._articlesUsed} REAL ARTICLES FROM LIVE THREAT INTEL FEEDS</div>` : `
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--warn);margin-bottom:0.75rem;">⚠ Feed data unavailable — report based on AI training knowledge</div>`}
+    <div class="real-data-badge">
+      ✓ ${window._articlesUsed} ARTICLES FROM LIVE FEEDS &nbsp;|&nbsp;
+      ${window._articlesFetched} FULL ARTICLES FETCHED &nbsp;|&nbsp;
+      ${window._iocCount} REAL IOCs EXTRACTED
+    </div>` : `
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--warn);margin-bottom:0.75rem;">⚠ Feed data unavailable — report based on AI training knowledge only</div>`}
 
     ${window._sourceSummary?.length ? `
     <div class="source-panel">
@@ -1279,23 +1285,63 @@ function renderReport(d) {
 }
 
 function exportTXT() {
-  if (!window._report) return;
   const d = window._report;
-  let t = `INTRUSION REPORT — ${d.caseId}\nGenerated: ${today}\n${'='.repeat(60)}\n\n`;
-  t += `${d.reportTitle}\n\nSUMMARY\n${'-'.repeat(40)}\n${d.analystSummary}\n\n`;
-  t += `KEY FINDINGS\n${'-'.repeat(40)}\n${(d.keyFindings||[]).map((f,i)=>`${i+1}. ${f}`).join('\n')}\n\n`;
-  t += `ATTACK CHAIN\n${'-'.repeat(40)}\n`;
-  (d.attackChain||[]).forEach(s => { t += `[${s.stepNum}] ${s.phase} — ${s.action}\n    ${s.detail}\n    Tools: ${(s.tools||[]).map(x=>x.name).join(', ')}\n\n`; });
-  t += `PROCESS WATCHLIST\n${'-'.repeat(40)}\n`;
-  (d.processWatchlist||[]).forEach(p => { t += `${p.process} [${p.type}] ${p.mitreId||''}\n  ${p.description}\n\n`; });
-  t += `DETECTION OPPORTUNITIES\n${'-'.repeat(40)}\n${(d.detectionOpportunities||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')}\n\n`;
-  t += `INDICATORS OF COMPROMISE\n${'-'.repeat(40)}\n${(d.iocs||[]).map(i=>`[${i.type}] ${i.value}`).join('\n')}\n\n`;
-  t += `MITRE ATT&CK\n${'-'.repeat(40)}\n${(d.mitreTechniques||[]).join('\n')}\n`;
-  const blob = new Blob([t], {type:'text/plain'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${d.caseId}_report.txt`;
-  a.click();
+  if (!d) {
+    alert('No report generated yet. Please generate a report first.');
+    return;
+  }
+  try {
+    const sep1 = '='.repeat(60);
+    const sep2 = '-'.repeat(40);
+    let t = '';
+    t += `WELCHSEC INTRUSION REPORT\n`;
+    t += `Case ID  : ${d.caseId || 'N/A'}\n`;
+    t += `Generated: ${today}\n`;
+    t += `Articles : ${window._articlesUsed || 0} feed articles | ${window._iocCount || 0} IOCs extracted\n`;
+    t += `${sep1}\n\n`;
+    t += `TITLE\n${sep2}\n${d.reportTitle || ''}\n\n`;
+    t += `ANALYST SUMMARY\n${sep2}\n${d.analystSummary || ''}\n\n`;
+    t += `KEY FINDINGS\n${sep2}\n`;
+    (d.keyFindings || []).forEach((f, i) => { t += `${i+1}. ${f}\n`; });
+    t += `\nATTACK CHAIN\n${sep2}\n`;
+    (d.attackChain || []).forEach(s => {
+      t += `[${s.stepNum || '?'}] ${s.phase || ''} — ${s.action || ''}\n`;
+      t += `    ${s.detail || ''}\n`;
+      t += `    Tools: ${(s.tools || []).map(x => x.name).join(', ') || 'N/A'}\n\n`;
+    });
+    t += `PROCESS WATCHLIST\n${sep2}\n`;
+    (d.processWatchlist || []).forEach(p => {
+      t += `${p.process || ''} [${p.type || ''}] ${p.mitreId || ''}\n`;
+      t += `  ${p.description || ''}\n\n`;
+    });
+    t += `DETECTION OPPORTUNITIES\n${sep2}\n`;
+    (d.detectionOpportunities || []).forEach((x, i) => { t += `${i+1}. ${x}\n`; });
+    t += `\nINDICATORS OF COMPROMISE\n${sep2}\n`;
+    if ((d.iocs || []).length) {
+      (d.iocs || []).forEach(ioc => { t += `[${ioc.type}] ${ioc.value}\n`; });
+    } else {
+      t += 'No IOCs available in source articles.\n';
+    }
+    t += `\nMITRE ATT&CK TECHNIQUES\n${sep2}\n`;
+    (d.mitreTechniques || []).forEach(tech => { t += `${tech}\n`; });
+
+    // Create and trigger download
+    const blob = new Blob([t], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${(d.caseId || 'WelchSec_Report').replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+  } catch(err) {
+    console.error('Export error:', err);
+    alert('Export failed: ' + err.message);
+  }
 }
 
 // Source toggle buttons
