@@ -113,11 +113,13 @@ Export to .TXT
 
 
 💰 Cost
+
 Everything is free:
 ComponentCostGitHub Pages hostingFreeCloudflare WorkerFree (100k requests/day)Google Gemini APIFree tier availableGroq APIFree tier availableOpenRouterFree models available
 Generating one report uses roughly 3,000–6,000 tokens which costs fractions of a cent even on paid plans.
 
 ⚠️ Disclaimer
+
 This toolkit is for educational and defensive security research purposes only. IOCs and threat intelligence data are sourced from publicly available threat research blogs and RSS feeds. Always verify IOCs before acting on them. The AI-generated content should be treated as a starting point for research, not as a definitive source of truth.
 
 🔧 Troubleshooting
