@@ -810,6 +810,171 @@
     margin-bottom: 1rem;
   }
 
+
+  /* Article Browser */
+  .article-browser {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .article-browser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .article-browser-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--heading);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .article-browser-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-top: 0.15rem;
+  }
+
+  .article-grid {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .article-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    padding: 0.85rem 1rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.75rem;
+    align-items: start;
+    transition: border-color 0.15s;
+  }
+
+  .article-card:hover { border-left-color: var(--accent); }
+  .article-card.generating { border-left-color: var(--warn); opacity: 0.7; }
+  .article-card.done { border-left-color: var(--accent3); }
+
+  .article-card-source {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.25rem;
+  }
+
+  .article-card-title {
+    font-size: 0.82rem;
+    color: var(--heading);
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 0.3rem;
+  }
+
+  .article-card-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .article-card-desc {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 0.3rem;
+    display: none;
+  }
+
+  .article-card:hover .article-card-desc { display: block; }
+
+  .article-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .btn-gen-article {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: transparent;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .btn-gen-article:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .btn-gen-article:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-open-source {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: transparent;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+    transition: all 0.15s;
+  }
+
+  .btn-open-source:hover {
+    border-color: var(--muted);
+    color: var(--text);
+  }
+
+  .score-bar {
+    display: flex;
+    gap: 2px;
+    margin-top: 0.3rem;
+  }
+
+  .score-pip {
+    width: 6px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 1px;
+  }
+
+  .score-pip.on { background: var(--accent); }
+
+  .article-spinner {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--warn);
+    display: none;
+  }
+
+  .article-spinner.on { display: block; }
+
 </style>
 </head>
 <body>
@@ -1028,7 +1193,8 @@ async function callAPI(prompt) {
         family: document.getElementById('family').value,
         intrusion: document.getElementById('intrusion').value,
         sector: document.getElementById('sector').value,
-        sources: getSelectedSources()
+        sources: getSelectedSources(),
+        returnFeedItems: true
       }
     })
   });
@@ -1044,6 +1210,7 @@ async function callAPI(prompt) {
   window._articlesUsed    = data.articlesUsed || 0;
   window._articlesFetched = data.articlesFetched || 0;
   window._iocCount        = data.iocCount || 0;
+  window._feedItems       = data.feedItems || [];
   return data.text || '';
 }
 
@@ -1282,6 +1449,180 @@ function renderReport(d) {
 
   document.getElementById('reportOutput').innerHTML = html;
   window._report = d;
+
+  // Render article browser below the report
+  renderArticleBrowser(window._feedItems || []);
+}
+
+function renderArticleBrowser(items) {
+  // Remove existing browser if any
+  const existing = document.getElementById('articleBrowser');
+  if (existing) existing.remove();
+  if (!items.length) return;
+
+  const container = document.createElement('div');
+  container.id = 'articleBrowser';
+  container.className = 'article-browser';
+
+  const cardsHTML = items.map((item, idx) => {
+    // Score pips (max 5)
+    const pipCount = Math.min(item.score || 0, 5);
+    const pips = Array.from({length: 5}, (_, i) =>
+      `<div class="score-pip ${i < pipCount ? 'on' : ''}"></div>`
+    ).join('');
+
+    return `
+    <div class="article-card" id="artcard-${idx}">
+      <div>
+        <div class="article-card-source">${item.source || 'Unknown Source'}</div>
+        <div class="article-card-title">${item.title || 'Untitled'}</div>
+        <div class="article-card-meta">
+          <span>${item.date ? new Date(item.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'Recent'}</span>
+          <span style="color:var(--accent)">relevance</span>
+        </div>
+        <div class="score-bar">${pips}</div>
+        <div class="article-card-desc">${item.desc || ''}</div>
+      </div>
+      <div class="article-actions">
+        <button class="btn-gen-article" onclick="generateFromArticle(${idx})" id="artbtn-${idx}">
+          ▶ GENERATE REPORT
+        </button>
+        ${item.link ? `<a class="btn-open-source" href="${item.link}" target="_blank" rel="noopener">↗ SOURCE</a>` : ''}
+        <div class="article-spinner" id="artspinner-${idx}">GENERATING...</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="article-browser-header">
+      <div>
+        <div class="article-browser-title">📰 Related Articles Found (${items.length})</div>
+        <div class="article-browser-sub">Click ▶ GENERATE REPORT on any article to produce a full DFIR-style report from that source</div>
+      </div>
+    </div>
+    <div class="article-grid">${cardsHTML}</div>
+  `;
+
+  // Append after the report output div
+  document.getElementById('reportOutput').after(container);
+}
+
+async function generateFromArticle(idx) {
+  const items = window._feedItems || [];
+  const item = items[idx];
+  if (!item) return;
+
+  const btn = document.getElementById(\`artbtn-\${idx}\`);
+  const spinner = document.getElementById(\`artspinner-\${idx}\`);
+  const card = document.getElementById(\`artcard-\${idx}\`);
+
+  btn.disabled = true;
+  spinner.className = 'article-spinner on';
+  card.className = 'article-card generating';
+  setStatus(\`Fetching full article and generating report for: \${item.title.slice(0,60)}...\`, 'active');
+
+  const prompt = buildPrompt(
+    document.getElementById('family').value,
+    document.getElementById('intrusion').value,
+    document.getElementById('sector').value
+  );
+
+  try {
+    const workerUrl = document.getElementById('workerUrl').value.trim();
+    const provider  = document.getElementById('provider').value;
+    const apiKey    = document.getElementById('apiKey').value.trim();
+
+    const r = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        apiKey,
+        payload: {
+          prompt,
+          maxTokens: 6000,
+          family: document.getElementById('family').value,
+          intrusion: document.getElementById('intrusion').value,
+          sector: document.getElementById('sector').value,
+          // Pass specific article URL for targeted fetch
+          specificArticle: { url: item.link, title: item.title, source: item.source },
+          sources: [item.source],
+          returnFeedItems: false
+        }
+      })
+    });
+
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+
+    window._sourceSummary   = data.summary || [];
+    window._realData        = true;
+    window._articlesUsed    = 1;
+    window._articlesFetched = 1;
+    window._iocCount        = data.iocCount || 0;
+
+    // Parse the report
+    let rawText = data.text || '';
+    let clean = rawText.replace(/\`\`\`json/gi,'').replace(/\`\`\`/g,'')
+      .replace(/[\u0000-\u001F\u007F]/g,' ')
+      .replace(/,\s*}/g,'}').replace(/,\s*]/g,']').trim();
+    const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
+    if (s === -1 || e === -1) throw new Error('No JSON in response');
+    let reportData;
+    try { reportData = JSON.parse(clean.substring(s, e+1)); }
+    catch(pe) { reportData = extractPartialJSON(clean.substring(s, e+1)); }
+
+    // Scroll to top of report
+    document.getElementById('reportOutput').scrollIntoView({ behavior: 'smooth' });
+
+    renderReport(reportData);
+    setStatus(\`Report generated from: \${item.source} — \${item.title.slice(0,50)}...\`, 'done');
+    card.className = 'article-card done';
+
+  } catch(err) {
+    console.error(err);
+    setStatus('Error: ' + (err.message || err), 'error');
+    card.className = 'article-card';
+  }
+
+  btn.disabled = false;
+  spinner.className = 'article-spinner';
+}
+
+// Extract the prompt builder so it can be reused
+function buildPrompt(family, intrusion, sector) {
+  return \`You are a DFIR (Digital Forensics and Incident Response) analyst writing a case report in the style of thedfirreport.com. Generate a detailed intrusion report for: malware/ransomware family: "\${family}", intrusion type: "\${intrusion}", sector: "\${sector}", as of March 2026.
+
+Return ONLY valid JSON, no markdown, no text before or after:
+
+{
+  "reportTitle": "narrative title e.g. From ClickFix to Akira: Social Engineering Delivers Ransomware in 4 Hours",
+  "caseId": "CASE-2026-XXX",
+  "date": "March 2026",
+  "dwellTimeHours": 0,
+  "analystSummary": "3-4 sentence narrative summary of the intrusion written in DFIR report style",
+  "keyFindings": ["finding 1", "finding 2", "finding 3", "finding 4", "finding 5"],
+  "attackChain": [
+    {
+      "phase": "INITIAL ACCESS",
+      "phaseClass": "init",
+      "stepNum": "01",
+      "action": "short action title",
+      "detail": "2 sentences describing exactly what happened with specific details",
+      "tools": [{"name": "toolname", "type": "malware or lolbin or rmm or c2"}]
+    }
+  ],
+  "processWatchlist": [
+    { "process": "exact.exe", "type": "rmm or lolbin or malware or persistence or c2 or exfil", "description": "why it is suspicious in this context", "mitreId": "T1234" }
+  ],
+  "detectionOpportunities": ["detection 1", "detection 2", "detection 3", "detection 4"],
+  "iocs": [
+    { "type": "DOMAIN or IP or FILE HASH or REGISTRY KEY or URL", "value": "value" }
+  ],
+  "mitreTechniques": ["T1566.001 - Spearphishing Attachment", "T1059.001 - PowerShell"]
+}
+
+Attack chain phases in order (phaseClass values): init, exec, persist, privesc, lateral, exfil, impact. All 7 required. Return ONLY JSON.\`;
 }
 
 function exportTXT() {
