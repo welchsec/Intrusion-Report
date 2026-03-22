@@ -1510,27 +1510,43 @@ function renderArticleBrowser(items) {
 async function generateFromArticle(idx) {
   const items = window._feedItems || [];
   const item = items[idx];
-  if (!item) return;
+  if (!item) { alert('Article not found'); return; }
 
-  const btn = document.getElementById(\`artbtn-\${idx}\`);
-  const spinner = document.getElementById(\`artspinner-\${idx}\`);
-  const card = document.getElementById(\`artcard-\${idx}\`);
+  const btn     = document.getElementById('artbtn-' + idx);
+  const spinner = document.getElementById('artspinner-' + idx);
+  const card    = document.getElementById('artcard-' + idx);
+
+  if (!btn || !card) { console.error('Card elements not found for idx', idx); return; }
 
   btn.disabled = true;
-  spinner.className = 'article-spinner on';
+  if (spinner) spinner.className = 'article-spinner on';
   card.className = 'article-card generating';
-  setStatus(\`Fetching full article and generating report for: \${item.title.slice(0,60)}...\`, 'active');
+  setStatus('Fetching article: ' + item.title.slice(0, 60) + '...', 'active');
 
-  const prompt = buildPrompt(
-    document.getElementById('family').value,
-    document.getElementById('intrusion').value,
-    document.getElementById('sector').value
-  );
+  const workerUrl = document.getElementById('workerUrl').value.trim();
+  const provider  = document.getElementById('provider').value;
+  const apiKey    = document.getElementById('apiKey').value.trim();
+
+  if (!workerUrl) {
+    setStatus('Error: Please enter your Cloudflare Worker URL', 'error');
+    btn.disabled = false;
+    card.className = 'article-card';
+    return;
+  }
+
+  if (!apiKey) {
+    setStatus('Error: Please enter your API key', 'error');
+    btn.disabled = false;
+    card.className = 'article-card';
+    return;
+  }
 
   try {
-    const workerUrl = document.getElementById('workerUrl').value.trim();
-    const provider  = document.getElementById('provider').value;
-    const apiKey    = document.getElementById('apiKey').value.trim();
+    const prompt = buildPrompt(
+      document.getElementById('family').value,
+      document.getElementById('intrusion').value,
+      document.getElementById('sector').value
+    );
 
     const r = await fetch(workerUrl, {
       method: 'POST',
@@ -1541,16 +1557,20 @@ async function generateFromArticle(idx) {
         payload: {
           prompt,
           maxTokens: 6000,
-          family: document.getElementById('family').value,
+          family:    document.getElementById('family').value,
           intrusion: document.getElementById('intrusion').value,
-          sector: document.getElementById('sector').value,
-          // Pass specific article URL for targeted fetch
+          sector:    document.getElementById('sector').value,
           specificArticle: { url: item.link, title: item.title, source: item.source },
           sources: [item.source],
           returnFeedItems: false
         }
       })
     });
+
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: r.statusText }));
+      throw new Error(err.error || 'Worker error ' + r.status);
+    }
 
     const data = await r.json();
     if (data.error) throw new Error(data.error);
@@ -1560,129 +1580,45 @@ async function generateFromArticle(idx) {
     window._articlesUsed    = 1;
     window._articlesFetched = 1;
     window._iocCount        = data.iocCount || 0;
+    window._feedItems       = window._feedItems || [];
 
-    // Parse the report
     let rawText = data.text || '';
-    let clean = rawText.replace(/\`\`\`json/gi,'').replace(/\`\`\`/g,'')
-      .replace(/[\u0000-\u001F\u007F]/g,' ')
-      .replace(/,\s*}/g,'}').replace(/,\s*]/g,']').trim();
-    const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
-    if (s === -1 || e === -1) throw new Error('No JSON in response');
+    let clean = rawText
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .replace(/[\u0000-\u001F\u007F]/g, ' ')
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .trim();
+
+    const s = clean.indexOf('{');
+    const e = clean.lastIndexOf('}');
+    if (s === -1 || e === -1) throw new Error('No JSON found in response. Try again.');
+
     let reportData;
-    try { reportData = JSON.parse(clean.substring(s, e+1)); }
-    catch(pe) { reportData = extractPartialJSON(clean.substring(s, e+1)); }
+    try {
+      reportData = JSON.parse(clean.substring(s, e + 1));
+    } catch(pe) {
+      reportData = extractPartialJSON(clean.substring(s, e + 1));
+    }
 
-    // Scroll to top of report
     document.getElementById('reportOutput').scrollIntoView({ behavior: 'smooth' });
-
     renderReport(reportData);
-    setStatus(\`Report generated from: \${item.source} — \${item.title.slice(0,50)}...\`, 'done');
+    setStatus('Report generated from: ' + item.source + ' — ' + item.title.slice(0, 50), 'done');
     card.className = 'article-card done';
 
   } catch(err) {
-    console.error(err);
-    setStatus('Error: ' + (err.message || err), 'error');
+    console.error('generateFromArticle error:', err);
+    setStatus('Error: ' + (err.message || String(err)), 'error');
     card.className = 'article-card';
   }
 
   btn.disabled = false;
-  spinner.className = 'article-spinner';
+  if (spinner) spinner.className = 'article-spinner';
 }
 
-// Extract the prompt builder so it can be reused
 function buildPrompt(family, intrusion, sector) {
-  return \`You are a DFIR (Digital Forensics and Incident Response) analyst writing a case report in the style of thedfirreport.com. Generate a detailed intrusion report for: malware/ransomware family: "\${family}", intrusion type: "\${intrusion}", sector: "\${sector}", as of March 2026.
-
-Return ONLY valid JSON, no markdown, no text before or after:
-
-{
-  "reportTitle": "narrative title e.g. From ClickFix to Akira: Social Engineering Delivers Ransomware in 4 Hours",
-  "caseId": "CASE-2026-XXX",
-  "date": "March 2026",
-  "dwellTimeHours": 0,
-  "analystSummary": "3-4 sentence narrative summary of the intrusion written in DFIR report style",
-  "keyFindings": ["finding 1", "finding 2", "finding 3", "finding 4", "finding 5"],
-  "attackChain": [
-    {
-      "phase": "INITIAL ACCESS",
-      "phaseClass": "init",
-      "stepNum": "01",
-      "action": "short action title",
-      "detail": "2 sentences describing exactly what happened with specific details",
-      "tools": [{"name": "toolname", "type": "malware or lolbin or rmm or c2"}]
-    }
-  ],
-  "processWatchlist": [
-    { "process": "exact.exe", "type": "rmm or lolbin or malware or persistence or c2 or exfil", "description": "why it is suspicious in this context", "mitreId": "T1234" }
-  ],
-  "detectionOpportunities": ["detection 1", "detection 2", "detection 3", "detection 4"],
-  "iocs": [
-    { "type": "DOMAIN or IP or FILE HASH or REGISTRY KEY or URL", "value": "value" }
-  ],
-  "mitreTechniques": ["T1566.001 - Spearphishing Attachment", "T1059.001 - PowerShell"]
-}
-
-Attack chain phases in order (phaseClass values): init, exec, persist, privesc, lateral, exfil, impact. All 7 required. Return ONLY JSON.\`;
-}
-
-function exportTXT() {
-  const d = window._report;
-  if (!d) {
-    alert('No report generated yet. Please generate a report first.');
-    return;
-  }
-  try {
-    const sep1 = '='.repeat(60);
-    const sep2 = '-'.repeat(40);
-    let t = '';
-    t += `WELCHSEC INTRUSION REPORT\n`;
-    t += `Case ID  : ${d.caseId || 'N/A'}\n`;
-    t += `Generated: ${today}\n`;
-    t += `Articles : ${window._articlesUsed || 0} feed articles | ${window._iocCount || 0} IOCs extracted\n`;
-    t += `${sep1}\n\n`;
-    t += `TITLE\n${sep2}\n${d.reportTitle || ''}\n\n`;
-    t += `ANALYST SUMMARY\n${sep2}\n${d.analystSummary || ''}\n\n`;
-    t += `KEY FINDINGS\n${sep2}\n`;
-    (d.keyFindings || []).forEach((f, i) => { t += `${i+1}. ${f}\n`; });
-    t += `\nATTACK CHAIN\n${sep2}\n`;
-    (d.attackChain || []).forEach(s => {
-      t += `[${s.stepNum || '?'}] ${s.phase || ''} — ${s.action || ''}\n`;
-      t += `    ${s.detail || ''}\n`;
-      t += `    Tools: ${(s.tools || []).map(x => x.name).join(', ') || 'N/A'}\n\n`;
-    });
-    t += `PROCESS WATCHLIST\n${sep2}\n`;
-    (d.processWatchlist || []).forEach(p => {
-      t += `${p.process || ''} [${p.type || ''}] ${p.mitreId || ''}\n`;
-      t += `  ${p.description || ''}\n\n`;
-    });
-    t += `DETECTION OPPORTUNITIES\n${sep2}\n`;
-    (d.detectionOpportunities || []).forEach((x, i) => { t += `${i+1}. ${x}\n`; });
-    t += `\nINDICATORS OF COMPROMISE\n${sep2}\n`;
-    if ((d.iocs || []).length) {
-      (d.iocs || []).forEach(ioc => { t += `[${ioc.type}] ${ioc.value}\n`; });
-    } else {
-      t += 'No IOCs available in source articles.\n';
-    }
-    t += `\nMITRE ATT&CK TECHNIQUES\n${sep2}\n`;
-    (d.mitreTechniques || []).forEach(tech => { t += `${tech}\n`; });
-
-    // Create and trigger download
-    const blob = new Blob([t], { type: 'text/plain;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `${(d.caseId || 'WelchSec_Report').replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 1000);
-  } catch(err) {
-    console.error('Export error:', err);
-    alert('Export failed: ' + err.message);
-  }
+  return 'You are a DFIR analyst writing a case report in the style of thedfirreport.com. Generate a detailed intrusion report for: malware/ransomware family: "' + family + '", intrusion type: "' + intrusion + '", sector: "' + sector + '", as of March 2026.\n\nReturn ONLY valid JSON, no markdown, no text before or after:\n\n{\n  "reportTitle": "narrative title",\n  "caseId": "CASE-2026-XXX",\n  "date": "March 2026",\n  "dwellTimeHours": 4,\n  "analystSummary": "3-4 sentence narrative summary",\n  "keyFindings": ["finding 1", "finding 2", "finding 3", "finding 4", "finding 5"],\n  "attackChain": [\n    { "phase": "INITIAL ACCESS", "phaseClass": "init", "stepNum": "01", "action": "action title", "detail": "2 sentences of detail", "tools": [{"name": "tool.exe", "type": "malware"}] },\n    { "phase": "EXECUTION", "phaseClass": "exec", "stepNum": "02", "action": "action title", "detail": "2 sentences of detail", "tools": [{"name": "powershell.exe", "type": "lolbin"}] },\n    { "phase": "PERSISTENCE", "phaseClass": "persist", "stepNum": "03", "action": "action title", "detail": "2 sentences of detail", "tools": [{"name": "schtasks.exe", "type": "lolbin"}] },\n    { "phase": "PRIVILEGE ESCALATION", "phaseClass": "privesc", "stepNum": "04", "action": "action title", "detail": "2 sentences of detail", "tools": [{"name": "mimikatz.exe", "type": "malware"}] },\n    { "phase": "LATERAL MOVEMENT", "phaseClass": "lateral", "stepNum": "05", "action": "action title", "detail": "2 sentences of detail", "tools": [{"name": "wmiexec.py", "type": "malware"}] },\n    { "phase": "EXFILTRATION", "phaseClass": "exfil", "stepNum": "06", "action": "action title", "detail": "2 sentences of detail", "tools": [{"name": "rclone.exe", "type": "exfil"}] },\n    { "phase": "IMPACT", "phaseClass": "impact", "stepNum": "07", "action": "action title", "detail": "2 sentences of detail", "tools": [{"name": "ransomware.exe", "type": "malware"}] }\n  ],\n  "processWatchlist": [\n    { "process": "exact.exe", "type": "malware", "description": "why suspicious", "mitreId": "T1059" }\n  ],\n  "detectionOpportunities": ["detection 1", "detection 2", "detection 3", "detection 4"],\n  "iocs": [\n    { "type": "DOMAIN", "value": "example-c2.com" }\n  ],\n  "mitreTechniques": ["T1566.001 - Spearphishing Attachment", "T1059.001 - PowerShell", "T1078 - Valid Accounts"]\n}\n\nReturn ONLY the JSON object.';
 }
 
 // Source toggle buttons
