@@ -6,7 +6,8 @@
          '|  ||
           _\_):,_
 
-WelchSec Threat Intelligence Toolkit
+WelchSec Threat Intelligence Toolkit:
+
 A free, open-source cybersecurity threat intelligence toolkit built on GitHub Pages. Generates AI-powered reports grounded in real-world findings from live threat intel feeds including The DFIR Report, Cisco Talos, Sophos, Microsoft Security, and more.
 
 🛡 Tools
